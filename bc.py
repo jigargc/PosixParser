@@ -6,12 +6,12 @@ patterns = [
     (r'\d+\.\d+', 'IDENTIFIER'),
     (r'\d+', 'IDENTIFIER'),
     (r'[a-zA-Z_]\w*', 'IDENTIFIER'),
+    (r'[+][+]', 'INCREMENT'),
+    (r'[-][-]', 'DECREMENT'),
     (r'[+\-*/%^]', 'OPERATOR'),
     (r'[=]', 'ASSIGNMENT'),
     (r'[(]', 'LEFT_BRACKET'),
-    (r'[)]', 'RIGHT_BRACKET'),
-    (r'[+][+]', 'INCREMENT'),
-    (r'[-][-]', 'DECREMENT')
+    (r'[)]', 'RIGHT_BRACKET')
 ]
 
 
@@ -23,26 +23,58 @@ patterns = [
 # F  -> ( E ) | id | id ^ F | ++ id | -- id | id ++ | id -- | - id
 # id -> digit | digit . digit
 
+
+def remove_comments(code):
+    return re.sub(r"(?s)/\\*.*?\\*/|//.*", " ", code)
+
+
 class Parser(object):
-    def __init__(self, lines):
-        self.lines = lines
+
+    def __init__(self, code):
+        self.lines = remove_comments(code).strip().splitlines()
+        print(self.lines)
         self.tokens = []
         self.token_index = 0
         self.symbol_table = {}
+        self.parse()
 
     def parse(self):
         for line in self.lines:
             self.tokenize(line)
-            print(self.tokens)
+            # print(self.tokens)
             self.token_index = 0
-            self.parse_expression()
+            self.parse_line()
+
+    def parse_line(self):
+        current_token = self.get_current_token()
+        # print(current_token)
+        if current_token[1] == 'PRINT':
+            return self.parse_print()
+        elif current_token[1] == 'IDENTIFIER' and re.match(patterns[3][0], current_token[0]):
+            self.parse_assignment()
+
+    def parse_print(self):
+        pass
+
+    def parse_assignment(self):
+        prev_token = self.get_current_token()
+        self.token_index += 1
+        current_token = self.get_current_token()
+        if current_token is not None and current_token[1] == 'ASSIGNMENT':
+            self.token_index += 1
+            val = self.parse_expression()
+            self.symbol_table[prev_token[0]] = val
+            print(self.symbol_table)
+            return
+        self.token_index += -1
+        self.parse_expression()
 
     def parse_expression(self):
         val = self.e()
-        print(val)
         current_token = self.get_current_token()
         if current_token is not None:
             raise ValueError('Parsing error')
+        return val
 
     def e(self):
         t_val = self.t()
@@ -101,6 +133,7 @@ class Parser(object):
                 raise ValueError('Expected )')
         elif current_token[1] == 'IDENTIFIER':
             identifier_val = self.get_identifier_val()
+            pre_token = current_token
             self.token_index += 1
             current_token = self.get_current_token()
             if current_token is None:
@@ -173,9 +206,12 @@ class Parser(object):
             return None
         return self.tokens[self.token_index]
 
-
 # Example usage:
 # input_text = 'x = 42.2 ^ y * 3\nPrInt x,z'
-# input_text = '10+10^(2+2)'
-# parser = Parser(input_text.splitlines())
+# input_text = """
+# pi = 3.14159
+# r = 2
+# area = pi * r^2
+# """
+# parser = Parser(input_text)
 # parser.parse()

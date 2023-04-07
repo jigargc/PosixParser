@@ -1,0 +1,9 @@
+# var -> =E
+# E  -> Y X'
+# X' -> || Y X' | && Y X' | e
+# Y  -> T E'
+# E' -> + T E' | - T E' | e
+# T  -> F T'
+# T' -> * F T' | / F T' | % F T' | e
+# F  -> ( E ) | id | id ^ F | ++ id | -- id | id ++ | id -- | - id
+# id -> digit | digit . digit
