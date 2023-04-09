@@ -11,7 +11,8 @@ patterns = [
     (r'[+\-*/%^]', 'OPERATOR'),
     (r'[=]', 'ASSIGNMENT'),
     (r'[(]', 'LEFT_BRACKET'),
-    (r'[)]', 'RIGHT_BRACKET')
+    (r'[)]', 'RIGHT_BRACKET'),
+    (r'[,]', 'COMMA'),
 ]
 
 
@@ -25,14 +26,15 @@ patterns = [
 
 
 def remove_comments(code):
-    return re.sub(r"(?s)/\\*.*?\\*/|//.*", " ", code)
+    return code
 
 
 class Parser(object):
 
     def __init__(self, code):
+        self.current_line = None
         self.lines = remove_comments(code).strip().splitlines()
-        print(self.lines)
+        # print(self.lines)
         self.tokens = []
         self.token_index = 0
         self.symbol_table = {}
@@ -40,6 +42,9 @@ class Parser(object):
 
     def parse(self):
         for line in self.lines:
+            if line.strip() == '':
+                continue
+            self.current_line = line
             self.tokenize(line)
             # print(self.tokens)
             self.token_index = 0
@@ -47,14 +52,40 @@ class Parser(object):
 
     def parse_line(self):
         current_token = self.get_current_token()
-        # print(current_token)
         if current_token[1] == 'PRINT':
             return self.parse_print()
         elif current_token[1] == 'IDENTIFIER' and re.match(patterns[3][0], current_token[0]):
-            self.parse_assignment()
+            return self.parse_assignment()
+        else:
+            try:
+                self.parse_expression()
+            except ValueError:
+                print("parsing error")
+                return False
+            except ZeroDivisionError:
+                print("division by zero")
+                return False
+        return True
 
     def parse_print(self):
-        pass
+        main_line = self.current_line + ""
+        main_line = re.sub(re.compile("print", re.IGNORECASE), "", main_line, 1)
+        lines = main_line.split(",")
+        final_vals = []
+        for line in lines:
+            line = line.strip()
+            # print(line)
+            self.tokenize(line)
+            self.token_index = 0
+            try:
+                val = self.parse_expression()
+                final_vals.append(val)
+            except ValueError:
+                return print("Parsing error")
+            except ZeroDivisionError:
+                final_vals.append("divide by zero")
+        print(*final_vals)
+        return True
 
     def parse_assignment(self):
         prev_token = self.get_current_token()
@@ -62,12 +93,21 @@ class Parser(object):
         current_token = self.get_current_token()
         if current_token is not None and current_token[1] == 'ASSIGNMENT':
             self.token_index += 1
-            val = self.parse_expression()
+            try:
+                val = self.parse_expression()
+            except ValueError:
+                print("Parsing error")
+                return False
+            except ZeroDivisionError:
+                print("divide by zero")
+                return False
             self.symbol_table[prev_token[0]] = val
-            print(self.symbol_table)
-            return
         self.token_index += -1
-        self.parse_expression()
+        try:
+            self.parse_expression()
+        except ValueError:
+            print("Parsing error")
+            return False
 
     def parse_expression(self):
         val = self.e()
@@ -110,11 +150,11 @@ class Parser(object):
             elif current_token[0] == '/' and f_val != 0:
                 val = val / f_val
             elif current_token[0] == '/' and f_val == 0:
-                raise ValueError('Division by zero')
+                raise ZeroDivisionError('Division by zero')
             elif current_token[0] == '%' and f_val != 0:
                 val = val % f_val
             elif current_token[0] == '%' and f_val == 0:
-                raise ValueError('Division by zero')
+                raise ZeroDivisionError('Division by zero')
             return self.t_dash(val)
         return val
 
@@ -206,12 +246,20 @@ class Parser(object):
             return None
         return self.tokens[self.token_index]
 
+
 # Example usage:
 # input_text = 'x = 42.2 ^ y * 3\nPrInt x,z'
-# input_text = """
-# pi = 3.14159
-# r = 2
-# area = pi * r^2
-# """
-# parser = Parser(input_text)
-# parser.parse()
+input_text = """
+pi = 3.14159
+r = 2
+area = pi * r^2
+print area,pi*2/0
+
+print 0 / 1, 1 / 2
+print 5 - 1 - 1 - 1
+print ((5 - 1) - 1) - 1
+print 2 ^ 2 ^ 2
+2/0
+print 0 / 1, 1 / -2
+"""
+parser = Parser(input_text)
