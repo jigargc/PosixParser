@@ -96,7 +96,7 @@ class Parser(object):
             try:
                 val = self.parse_expression()
             except ValueError:
-                print("Parsing error")
+                print("parsing error")
                 return False
             except ZeroDivisionError:
                 print("divide by zero")
@@ -106,7 +106,10 @@ class Parser(object):
         try:
             self.parse_expression()
         except ValueError:
-            print("Parsing error")
+            print("parsing error")
+            return False
+        except ZeroDivisionError:
+            print("divide by zero")
             return False
 
     def parse_expression(self):
