@@ -253,16 +253,7 @@ class Parser(object):
 # Example usage:
 # input_text = 'x = 42.2 ^ y * 3\nPrInt x,z'
 input_text = """
-pi = 3.14159
-r = 2
-area = pi * r^2
-print area,pi*2/0
-
-print 0 / 1, 1 / 2
-print 5 - 1 - 1 - 1
-print ((5 - 1) - 1) - 1
-print 2 ^ 2 ^ 2
-2/0
-print 0 / 1, 1 / -2
+x1=5+2&&2
+print x1,2/0,2*2^3
 """
 parser = Parser(input_text)
