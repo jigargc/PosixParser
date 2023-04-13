@@ -17,6 +17,7 @@ patterns = [
 
 
 # var -> =E
+#
 # E  -> T E'
 # E' -> + T E' | - T E' | e
 # T  -> F T'
@@ -46,7 +47,7 @@ class Parser(object):
                 continue
             self.current_line = line
             self.tokenize(line)
-            # print(self.tokens)
+            print(self.tokens)
             self.token_index = 0
             self.parse_line()
 
@@ -61,10 +62,8 @@ class Parser(object):
                 self.parse_expression()
             except ValueError:
                 print("parsing error")
-                return False
             except ZeroDivisionError:
                 print("division by zero")
-                return False
         return True
 
     def parse_print(self):
@@ -253,7 +252,8 @@ class Parser(object):
 # Example usage:
 # input_text = 'x = 42.2 ^ y * 3\nPrInt x,z'
 input_text = """
-x1=5+2&&2
+x1=5+10
 print x1,2/0,2*2^3
+2+2
 """
 parser = Parser(input_text)
