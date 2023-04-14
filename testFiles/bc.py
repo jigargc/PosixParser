@@ -16,15 +16,15 @@ token_regex = {
     'div': r'/',
     'mod': r'%',
     'pow': r'\^',
-    'not': r'!',
     'eq': r'==',
     'neq': r'!=',
-    'lt': r'<',
     'le': r'<=',
-    'gt': r'>',
     'ge': r'>=',
+    'gt': r'>',
+    'lt': r'<',
     'and': r'&&',
     'or': r'\|\|',
+    'not': r'!',
     'assign': r'=',
     'comma': r','
 }
@@ -207,7 +207,7 @@ class Parser:
             raise ValueError('Expected identifier')
         if current_token[0] == 'not':
             self.pos += 1
-            return not self.i()
+            return float(not self.h())
         elif current_token[0] == 'minus':
             self.pos += 1
             return -self.i()
@@ -282,7 +282,11 @@ class Interpreter:
 
     def print_output(self):
         for line in self.output:
-            print(line)
+            if line['print'] == '':
+                break
+            print(line['print'])
+            if not line['no_error']:
+                break
 
     def interpret(self):
         lines = self.inp.splitlines()
@@ -299,35 +303,31 @@ class Interpreter:
                     self.print_exp(line[5:].strip())
                 else:
                     self.identifier(line)
-            except ValueError as e:
-                # print(e)
-                # self.print_output()
+            except ValueError:
                 print("parse error")
-                return
-            except ZeroDivisionError:
-                # self.print_output()
-                print("divide by zero")
                 return
         self.print_output()
 
     def print_exp(self, line):
         sub_expression = line.split(',')
         _val = []
+        flag = True
         if len(sub_expression) == 0:
-            self.output.append('')
-            return
+            raise ValueError('Expected expression')
         for exp in sub_expression:
             tokens = tokenize(exp)
             if len(tokens) == 0:
-                continue
+                raise ValueError('Expected expression')
             try:
                 val, s = Parser(tokens, self.symbol_table).parse()
             except ZeroDivisionError:
                 val = 'divide by zero'
-            except ValueError:
-                val = 'parse error'
-            _val.append(str(val))
-        self.output.append(' '.join(_val))
+                if flag:
+                    _val.append(val)
+                flag = False
+            if flag:
+                _val.append(str(val))
+        self.output.append({'print': ' '.join(_val), 'no_error': flag})
 
     def identifier(self, line):
         tokens = tokenize(line)
@@ -335,15 +335,22 @@ class Interpreter:
         if len(tokens) > 2 and tokens[1][0] == 'assign':
             self.assignment(tokens)
         else:
-            # print(tokens)
-            val, s = Parser(tokens, self.symbol_table).parse()
-            # self.output.append(val)
+            try:
+                val, s = Parser(tokens, self.symbol_table).parse()
+                # self.output.append({'print': str(val), 'no_error': True})
+            except ZeroDivisionError:
+                val = 'divide by zero'
+                self.output.append({'print': val, 'no_error': False})
 
     def assignment(self, tokens):
-        if tokens[0][0] != 'id' and tokens[0][1] != 'print':
+        if tokens[0][0] != 'id' or tokens[0][1] == 'print':
             raise ValueError('Expected identifier')
-        val, s = Parser(tokens[2:], self.symbol_table).parse()
-        self.symbol_table[tokens[0][1]] = val
+        try:
+            val, s = Parser(tokens[2:], self.symbol_table).parse()
+            self.symbol_table[tokens[0][1]] = val
+        except ZeroDivisionError:
+            val = 'divide by zero'
+            self.output.append({'print': val, 'no_error': False})
 
 
 def readLines():
