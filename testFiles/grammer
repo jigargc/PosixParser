@@ -1,0 +1,80 @@
+# var -> =E
+# E  -> Y X'
+# X' -> || Y X' | && Y X' | e
+# Y  -> T E'
+# E' -> + T E' | - T E' | e
+# T  -> F T'
+# T' -> * F T' | / F T' | % F T' | e
+# F  -> G ^ F | G
+# G  -> H G'
+# G' -> ++ | -- | e
+# F  -> ( E ) | id | id ^ F | ++ id | -- id | id ++ | id -- | - id
+# id -> digit | digit . digit
+
+
+
+
+
+
+
+E -> T E'
+E' -> + T E' | - T E' | e
+T -> F T'
+T' -> * F T' | / F T' | % F T' | e
+F -> H ^ F | H
+H -> I | - I
+I -> id | id ++ | id -- | ++ id | -- id | ( E )
+
+write arithmatic grammar for the following language operator precedence is (higher to lower)
+
+1. ++, --
+2. !,- (unary)
+3. ^
+4. *, /, %
+5. +, -
+6. <, <=, >, >=
+7. ==, !=
+8. &&
+9. ||
+10. =
+
+write grammar
+var
+A -> A || B | B
+B -> B && C | C
+C -> C == D | C != D | D
+D -> D < E | D <= E | D > E | D >= E | E
+E -> E + F | E - F | F
+F -> F * G | F / G | F % G | G
+G -> H ^ G | H
+H -> ! I | - I | I
+I -> ( A ) | id | id ++ | id -- | ++ id | -- id
+
+
+A -> B A'
+A' -> || B A' | e
+
+B -> C B'
+B' -> && C B' | e
+
+C -> D C'
+C' -> == D C' | != D C' | e
+
+D -> E D'
+D' -> < E D' | <= E D' | > E D' | >= E D' | e
+
+E -> F E'
+E' -> + F E' | - F E' | e
+
+F -> G F'
+F' -> * G F' | / G F' | % G F' | e
+
+G -> H G'
+G' -> ^ G | e
+
+H -> ! I | - I | I
+I -> ( A ) | id | id++ | id-- | ++id | --id
+
+write SDT for above grammar
+A->B A
+
