@@ -81,11 +81,14 @@ class Parser:
         self.tokens = tokens
         self.pos = 0
         self.symbol_table = symbol_table
+        self.post_inc = []
 
     def parse(self):
         val = self.a()
         if self.pos < len(self.tokens):
             raise ValueError('Parse error')
+        for var in self.post_inc:
+            self.symbol_table[var] = self.get_value(var) + 1
         return val, self.symbol_table
 
     def a(self):
@@ -245,7 +248,8 @@ class Parser:
                 return self.get_value(prev_token[1])
             if current_token[0] in ['inc', 'dec']:
                 self.pos += 1
-                val = self.get_value(prev_token[1]) + (1 if current_token[0] == 'inc' else -1)
+                self.post_inc.append(prev_token[1])
+                val = self.get_value(prev_token[1])
                 self.symbol_table[prev_token[1]] = val
                 return val
             return self.get_value(prev_token[1])
@@ -280,6 +284,7 @@ class Parser:
             self.symbol_table[var] = 0.0
             return 0.0
         return self.symbol_table[var]
+
 
 class Interpreter:
     def __init__(self, inp):
@@ -377,7 +382,6 @@ class Interpreter:
         except ZeroDivisionError:
             val = 'divide by zero'
             self.output.append({'print': val, 'no_error': False})
-
 
 
 class Interpreter:
