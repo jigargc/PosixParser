@@ -12,7 +12,7 @@
 
 ## Testing
 
-I thoroughly tested my code by writing doc tests for each function, as well as manually testing edge cases and
+We thoroughly tested my code by writing doc tests for each function, as well as manually testing edge cases and
 verifying the correctness of the output.
 
 ## Known Bugs and Issues
@@ -21,7 +21,7 @@ verifying the correctness of the output.
 
 ## Resolving a Difficult Issue
 
-- I had a difficult time implementing the (++) and (--) operators. I had to do a lot of research to understand how
+- We had a difficult time implementing the (++) and (--) operators. I had to do a lot of research to understand how
   to implement them. I also had to implement a function to check if the item is a var or not, because the
   (++) and (--) operators can only be used on var.
 
