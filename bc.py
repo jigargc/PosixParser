@@ -1,259 +1,402 @@
 import re
+import sys
 
-# Define regular expression patterns for different token types
-patterns = [
-    (r'[ \t\n]+', None),  # Ignore whitespace
-    (r'\d+\.\d+', 'IDENTIFIER'),
-    (r'\d+', 'IDENTIFIER'),
-    (r'[a-zA-Z_]\w*', 'IDENTIFIER'),
-    (r'[+][+]', 'INCREMENT'),
-    (r'[-][-]', 'DECREMENT'),
-    (r'[+\-*/%^]', 'OPERATOR'),
-    (r'[=]', 'ASSIGNMENT'),
-    (r'[(]', 'LEFT_BRACKET'),
-    (r'[)]', 'RIGHT_BRACKET'),
-    (r'[,]', 'COMMA'),
-]
+# Regular expressions for the tokens
+token_regex = {
+    'space': r'[ \t\n]+',
+    'id': r'[a-zA-Z_]\w*',
+    'num': r'\d+(\.\d*)?',
+    'inc': r'\+\+',
+    'dec': r'--',
+    'lpar': r'\(',
+    'rpar': r'\)',
+    'plus_eq': r'\+=',
+    'minus_eq': r'-=',
+    'mul_eq': r'\*=',
+    'div_eq': r'/=',
+    'mod_eq': r'%=',
+    'exp_eq': r'\^=',
+    'and_eq': r'&&=',
+    'or_eq': r'\|\|=',
+    'plus': r'\+',
+    'minus': r'-',
+    'mul': r'\*',
+    'div': r'/',
+    'mod': r'%',
+    'pow': r'\^',
+    'eq': r'==',
+    'neq': r'!=',
+    'le': r'<=',
+    'ge': r'>=',
+    'gt': r'>',
+    'lt': r'<',
+    'and': r'&&',
+    'or': r'\|\|',
+    'not': r'!',
+    'assign': r'=',
+    'comma': r','
+}
 
 
-# var -> =E
-#
-# E  -> T E'
-# E' -> + T E' | - T E' | e
-# T  -> F T'
-# T' -> * F T' | / F T' | % F T' | e
-# F  -> ( E ) | id | id ^ F | ++ id | -- id | id ++ | id -- | - id
-# id -> digit | digit . digit
+def remove_comments(code: str):
+    while True:
+        ind = code.find('/*')
+        if ind == -1:
+            break
+        tmp = code[ind:]
+        j = tmp.find('*/')
+        code = code[:ind] + ('' if j == -1 else tmp[j + 2:])
+    new_code = []
+    for _line in code.splitlines():
+        i = _line.find('#')
+        if i != -1:
+            new_code.append(_line[:i])
+        else:
+            new_code.append(_line)
+    return ('\n'.join(new_code)).strip()
 
 
-def remove_comments(code):
-    return code
+def tokenize(code):
+    _tokens = []
+    code = code.strip()
+    _i = 0
+    while _i < len(code):
+        match = None
+        for token_type, regex in token_regex.items():
+            _pattern = re.compile(regex)
+            match = _pattern.match(code, _i)
+            if match:
+                tok = (token_type, match.group(0))
+                if tok[0] != 'space':
+                    _tokens.append(tok)
+                _i = match.end(0)
+                break
+        if not match:
+            raise ValueError("Invalid input:")
+    return _tokens
 
 
-class Parser(object):
-
-    def __init__(self, code):
-        self.current_line = None
-        self.lines = remove_comments(code).strip().splitlines()
-        # print(self.lines)
-        self.tokens = []
-        self.token_index = 0
-        self.symbol_table = {}
-        self.parse()
+class Parser:
+    def __init__(self, tokens, symbol_table):
+        self.tokens = tokens
+        self.pos = 0
+        self.symbol_table = symbol_table
 
     def parse(self):
-        for line in self.lines:
-            if line.strip() == '':
-                continue
-            self.current_line = line
-            self.tokenize(line)
-            print(self.tokens)
-            self.token_index = 0
-            self.parse_line()
+        val = self.a()
+        if self.pos < len(self.tokens):
+            raise ValueError('Parse error')
+        return val, self.symbol_table
 
-    def parse_line(self):
-        current_token = self.get_current_token()
-        if current_token[1] == 'PRINT':
-            return self.parse_print()
-        elif current_token[1] == 'IDENTIFIER' and re.match(patterns[3][0], current_token[0]):
-            return self.parse_assignment()
-        else:
-            try:
-                self.parse_expression()
-            except ValueError:
-                print("parsing error")
-            except ZeroDivisionError:
-                print("division by zero")
-        return True
+    def a(self):
+        val = self.b()
+        return self.a_dash(val)
 
-    def parse_print(self):
-        main_line = self.current_line + ""
-        main_line = re.sub(re.compile("print", re.IGNORECASE), "", main_line, 1)
-        lines = main_line.split(",")
-        final_vals = []
-        for line in lines:
-            line = line.strip()
-            # print(line)
-            self.tokenize(line)
-            self.token_index = 0
-            try:
-                val = self.parse_expression()
-                final_vals.append(val)
-            except ValueError:
-                return print("Parsing error")
-            except ZeroDivisionError:
-                final_vals.append("divide by zero")
-        print(*final_vals)
-        return True
+    def a_dash(self, val):
+        current_token = self.current_token()
+        if current_token is None:
+            return val
+        if current_token[1] == '||':
+            self.pos += 1
+            b_val = self.b()
+            return self.a_dash(int(val != 0 or b_val != 0) // 1)
+        return val
 
-    def parse_assignment(self):
-        prev_token = self.get_current_token()
-        self.token_index += 1
-        current_token = self.get_current_token()
-        if current_token is not None and current_token[1] == 'ASSIGNMENT':
-            self.token_index += 1
-            try:
-                val = self.parse_expression()
-            except ValueError:
-                print("parsing error")
-                return False
-            except ZeroDivisionError:
-                print("divide by zero")
-                return False
-            self.symbol_table[prev_token[0]] = val
-        self.token_index += -1
-        try:
-            self.parse_expression()
-        except ValueError:
-            print("parsing error")
-            return False
-        except ZeroDivisionError:
-            print("divide by zero")
-            return False
+    def b(self):
+        val = self.c()
+        return self.b_dash(val)
 
-    def parse_expression(self):
+    def b_dash(self, val):
+        current_token = self.current_token()
+        if current_token is None:
+            return val
+        if current_token[1] == '&&':
+            self.pos += 1
+            c_val = self.c()
+            return self.b_dash(int((val != 0 and c_val != 0)) // 1)
+        return val
+
+    def c(self):
+        val = self.d()
+        return self.c_dash(val)
+
+    def c_dash(self, val):
+        current_token = self.current_token()
+        if current_token is None:
+            return val
+        if current_token[1] in ['==', '!=']:
+            self.pos += 1
+            d_val = self.d()
+            if current_token[1] == '==':
+                val = val == d_val
+            elif current_token[1] == '!=':
+                val = val != d_val
+            return self.c_dash(int(val) // 1)
+        return val
+
+    def d(self):
         val = self.e()
-        current_token = self.get_current_token()
-        if current_token is not None:
-            raise ValueError('Parsing error')
+        return self.d_dash(val)
+
+    def d_dash(self, val):
+        current_token = self.current_token()
+        if current_token is None:
+            return val
+        if current_token[1] in ['<', '<=', '>', '>=']:
+            self.pos += 1
+            e_val = self.e()
+            if current_token[1] == '<':
+                val = val < e_val
+            elif current_token[1] == '<=':
+                val = val <= e_val
+            elif current_token[1] == '>':
+                val = val > e_val
+            elif current_token[1] == '>=':
+                val = val >= e_val
+            return self.d_dash(int(val) // 1)
         return val
 
     def e(self):
-        t_val = self.t()
-        return self.e_dash(t_val)
+        val = self.f()
+        return self.e_dash(val)
 
     def e_dash(self, val):
-        current_token = self.get_current_token()
+        current_token = self.current_token()
         if current_token is None:
             return val
-        if current_token[1] == 'OPERATOR' and current_token[0] in ['+', '-']:
-            self.token_index += 1
-            t_val = self.t()
-            if current_token[0] == '+':
+        if current_token[1] in ['+', '-']:
+            self.pos += 1
+            t_val = self.f()
+            if current_token[1] == '+':
                 val = val + t_val
-            elif current_token[0] == '-':
+            elif current_token[1] == '-':
                 val = val - t_val
             return self.e_dash(val)
         return val
 
-    def t(self):
-        f_val = self.f()
-        return self.t_dash(f_val)
+    def f(self):
+        val = self.g()
+        return self.f_dash(val)
 
-    def t_dash(self, val):
-        current_token = self.get_current_token()
+    def f_dash(self, val):
+        current_token = self.current_token()
         if current_token is None:
             return val
-        if current_token[1] == 'OPERATOR' and current_token[0] in ['*', '/', '%']:
-            self.token_index += 1
-            f_val = self.f()
-            if current_token[0] == '*':
-                val = val * f_val
-            elif current_token[0] == '/' and f_val != 0:
-                val = val / f_val
-            elif current_token[0] == '/' and f_val == 0:
-                raise ZeroDivisionError('Division by zero')
-            elif current_token[0] == '%' and f_val != 0:
-                val = val % f_val
-            elif current_token[0] == '%' and f_val == 0:
-                raise ZeroDivisionError('Division by zero')
-            return self.t_dash(val)
+        if current_token[1] in ['*', '/', '%']:
+            self.pos += 1
+            g_val = self.g()
+            if current_token[1] == '*':
+                val = val * g_val
+            elif current_token[1] == '/' and g_val != 0:
+                val = val / g_val
+            elif current_token[1] == '/' and g_val == 0:
+                raise ZeroDivisionError('divide by zero')
+            elif current_token[1] == '%' and g_val != 0:
+                val = val % g_val
+            elif current_token[1] == '%' and g_val == 0:
+                raise ZeroDivisionError('divide by zero')
+            return self.f_dash(val)
         return val
 
-    def f(self):
-        current_token = self.get_current_token()
+    def g(self):
+        val = self.h()
+        current_token = self.current_token()
         if current_token is None:
-            raise ValueError('Expected ( or id')
-        if current_token[1] == 'LEFT_BRACKET':
-            self.token_index += 1
-            val = self.e()
-            current_token = self.get_current_token()
-            if current_token is not None and current_token[1] == 'RIGHT_BRACKET':
-                self.token_index += 1
-                return val
-            else:
-                raise ValueError('Expected )')
-        elif current_token[1] == 'IDENTIFIER':
-            identifier_val = self.get_identifier_val()
-            pre_token = current_token
-            self.token_index += 1
-            current_token = self.get_current_token()
+            return val
+        if current_token[1] == '^':
+            self.pos += 1
+            g_val = self.g()
+            return val ** g_val
+        return val
+
+    def h(self):
+        current_token = self.current_token()
+        if current_token is None:
+            raise ValueError('Expected identifier')
+        if current_token[0] == 'not':
+            self.pos += 1
+            return float(not self.h())
+        elif current_token[0] == 'minus':
+            self.pos += 1
+            return -self.i()
+        else:
+            return self.i()
+
+    def i(self):
+        current_token = self.current_token()
+        if current_token is None:
+            raise ValueError('Expected identifier')
+        if current_token[0] == 'lpar':
+            self.pos += 1
+            val = self.a()
+            current_token = self.current_token()
             if current_token is None:
-                return identifier_val
-            if current_token is not None and current_token[1] == 'INCREMENT' or current_token[1] == 'DECREMENT':
-                self.token_index += 1
-                return identifier_val
-            elif current_token is not None and current_token[1] == 'OPERATOR' and current_token[0] == '^':
-                self.token_index += 1
-                other_val = self.f()
-                return identifier_val ** other_val
-            return identifier_val
-        elif current_token[1] == 'INCREMENT' or current_token[1] == 'DECREMENT' or (
-                current_token[1] == 'OPERATOR' and current_token[0] == '-'):
-            self.token_index += 1
-            operation = current_token[1]
-            current_token = self.get_current_token()
-            if current_token is not None and current_token[1] == 'IDENTIFIER':
-                identifier_val = self.get_identifier_val()
-                if operation == 'INCREMENT':
-                    self.symbol_table[current_token[0]] = identifier_val + 1
-                if operation == 'DECREMENT':
-                    self.symbol_table[current_token[0]] = identifier_val - 1
-                if operation == 'OPERATOR':
-                    self.symbol_table[current_token[0]] = -identifier_val
-                self.token_index += 1
-                return self.symbol_table[current_token[0]]
+                raise ValueError('Expected )')
+            if current_token[0] != 'rpar':
+                raise ValueError('Expected )')
             else:
+                self.pos += 1
+                return val
+        elif current_token[0] == 'id':
+            prev_token = current_token
+            self.pos += 1
+            current_token = self.current_token()
+            if current_token is None:
+                return self.get_value(prev_token[1])
+            if current_token[0] in ['inc', 'dec']:
+                self.pos += 1
+                val = self.get_value(prev_token[1]) + (1 if current_token[0] == 'inc' else -1)
+                self.symbol_table[prev_token[1]] = val
+                return val
+            return self.get_value(prev_token[1])
+        elif current_token[0] in ['inc', 'dec']:
+            self.pos += 1
+            prev_token = current_token
+            current_token = self.current_token()
+            if current_token is None:
                 raise ValueError('Expected identifier')
+            if current_token[0] != 'id':
+                raise ValueError('Expected identifier')
+            else:
+                self.pos += 1
+                val = self.get_value(current_token[1]) + (1 if prev_token[0] == 'inc' else -1)
+                self.symbol_table[current_token[1]] = val
+                return val
+        elif current_token[0] == 'num':
+            self.pos += 1
+            return float(current_token[1])
         else:
             raise ValueError('Expected ( or id')
 
-    def get_identifier_val(self):
-        current_token = self.get_current_token()
-        if current_token is None:
-            raise ValueError('Expected identifier')
-
-        regex, token_type = patterns[1]
-        match = re.match(regex, current_token[0])
-        if match:
-            return float(current_token[0])
-        regex, token_type = patterns[2]
-        match = re.match(regex, current_token[0])
-        if match:
-            return int(current_token[0])
-        if current_token[0] in self.symbol_table:
-            return self.symbol_table[current_token[0]]
-        raise ValueError(f'Undefined identifier: {current_token[0]}')
-
-    def tokenize(self, inp):
-        self.tokens = []
-        while inp:
-            match = None
-            for pattern in patterns:
-                regex, token_type = pattern
-                match = re.match(regex, inp)
-                if match:
-                    if token_type:
-                        self.tokens.append((match.group(), token_type))
-                    break
-            if not match:
-                raise ValueError(f'Invalid input: {inp}')
-            inp = inp[match.end():]
-        for i in range(len(self.tokens)):
-            if self.tokens[i][0].lower() == 'print':
-                self.tokens[i] = (self.tokens[i][0], 'PRINT')
-
-    def get_current_token(self):
-        if self.token_index >= len(self.tokens):
+    def current_token(self):
+        if self.pos >= len(self.tokens):
             return None
-        return self.tokens[self.token_index]
+        return self.tokens[self.pos]
+
+    def get_value(self, var):
+        if var == 'print':
+            raise ValueError('print is a reserved keyword')
+        if var not in self.symbol_table:
+            self.symbol_table[var] = 0.0
+            return 0.0
+        return self.symbol_table[var]
 
 
-# Example usage:
-# input_text = 'x = 42.2 ^ y * 3\nPrInt x,z'
-input_text = """
-x1=5+10
-print x1,2/0,2*2^3
-2+2
-"""
-parser = Parser(input_text)
+class Interpreter:
+    def __init__(self, inp):
+        self.inp = inp
+        self.symbol_table = {}
+        self.output = []
+
+    def print_output(self):
+        for line in self.output:
+            if line['print'] == '':
+                break
+            print(line['print'])
+            if not line['no_error']:
+                break
+
+    def interpret(self):
+        lines = self.inp.splitlines()
+        if len(lines) == 0:
+            print("parse error")
+            return
+        for line in lines:
+            line = line.strip()
+            # print(line)
+            if line == '':
+                continue
+            try:
+                if len(line) > 5 and line[:5] == 'print' and len(line) > 6 and line[5] == ' ':
+                    self.print_exp(line[5:].strip())
+                else:
+                    self.identifier(line)
+            except ValueError:
+                print("parse error")
+                return
+        self.print_output()
+
+    def print_exp(self, line):
+        if len(line) == 0:
+            raise ValueError('Expected expression')
+        sub_expression = line.split(',')
+        _val = []
+        flag = True
+        for exp in sub_expression:
+            tokens = tokenize(exp)
+            if len(tokens) == 0:
+                raise ValueError('Expected expression')
+            try:
+                val, s = Parser(tokens, self.symbol_table).parse()
+            except ZeroDivisionError:
+                val = 'divide by zero'
+                if flag:
+                    _val.append(val)
+                flag = False
+            if flag:
+                _val.append(str(val))
+        self.output.append({'print': ' '.join(_val), 'no_error': flag})
+
+    def identifier(self, line):
+        tokens = tokenize(line)
+        # print(tokens)
+        if len(tokens) > 2 and (tokens[1][1] in ['=', '+=', '-=', '/=', '*=', '^=', '%=', '&&=', '||=']):
+            self.assignment(tokens)
+        else:
+            try:
+                val, s = Parser(tokens, self.symbol_table).parse()
+                # self.output.append({'print': str(val), 'no_error': True})
+            except ZeroDivisionError:
+                val = 'divide by zero'
+                self.output.append({'print': val, 'no_error': False})
+
+    def assignment(self, tokens):
+
+        if tokens[0][0] != 'id' or tokens[0][1] == 'print':
+            raise ValueError('Expected identifier')
+        try:
+            val, s = Parser(tokens[2:], self.symbol_table).parse()
+            if tokens[1][1] == '=':
+                self.symbol_table[tokens[0][1]] = val
+            elif tokens[1][1] == '+=':
+                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
+                                                                                          1] in self.symbol_table else 0) + val
+            elif tokens[1][1] == '-=':
+                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
+                                                                                          1] in self.symbol_table else 0) - val
+            elif tokens[1][1] == '*=':
+                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
+                                                                                          1] in self.symbol_table else 0) * val
+            elif tokens[1][1] == '/=':
+                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
+                                                                                          1] in self.symbol_table else 0) / val
+            elif tokens[1][1] == '^=':
+                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
+                                                                                          1] in self.symbol_table else 0) ** val
+            elif tokens[1][1] == '%=':
+                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
+                                                                                          1] in self.symbol_table else 0) % val
+            elif tokens[1][1] == '&&=':
+                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
+                                                                                          1] in self.symbol_table else 0) and val
+                self.symbol_table[tokens[0][1]] = int(self.symbol_table[tokens[0][1]])
+            elif tokens[1][1] == '||=':
+                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
+                                                                                          1] in self.symbol_table else 0) or val
+                self.symbol_table[tokens[0][1]] = int(self.symbol_table[tokens[0][1]])
+        except ZeroDivisionError:
+            val = 'divide by zero'
+            self.output.append({'print': val, 'no_error': False})
+
+
+def readLines():
+    inpLines = ""
+    for line in sys.stdin:
+        if line.strip() == '':
+            continue
+        inpLines += line.strip() + "\n"
+    return inpLines
+
+
+i = Interpreter(remove_comments(readLines()))
+i.interpret()
