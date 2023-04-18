@@ -17,7 +17,7 @@ verifying the correctness of the output.
 
 ## Known Bugs and Issues
 
-- In some cases, the application might not handle incorrect user input gracefully, causing unexpected behavior.
+- In some cases of post (Increment and Decrement), the application might not handle incorrect user input gracefully, causing unexpected behavior.
 
 ## Resolving a Difficult Issue
 
