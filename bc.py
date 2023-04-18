@@ -388,13 +388,9 @@ class Interpreter:
                 self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
                                                                                           1] in self.symbol_table else 0) % val
             elif tokens[1][1] == '&&=':
-                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
-                                                                                          1] in self.symbol_table else 0) and val
-                self.symbol_table[tokens[0][1]] = int(self.symbol_table[tokens[0][1]])
+                self.symbol_table[tokens[0][1]] = int(val != 0)
             elif tokens[1][1] == '||=':
-                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
-                                                                                          1] in self.symbol_table else 0) or val
-                self.symbol_table[tokens[0][1]] = int(self.symbol_table[tokens[0][1]])
+                self.symbol_table[tokens[0][1]] = int(val != 0)
         except ZeroDivisionError:
             val = 'divide by zero'
             self.output.append({'print': val, 'no_error': False})
