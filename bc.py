@@ -1,3 +1,4 @@
+import math
 import re
 import sys
 
@@ -199,7 +200,7 @@ class Parser:
             elif current_token[1] == '/' and g_val == 0:
                 raise ZeroDivisionError('divide by zero')
             elif current_token[1] == '%' and g_val != 0:
-                val = val % g_val
+                val = math.fmod(val, g_val)
             elif current_token[1] == '%' and g_val == 0:
                 raise ZeroDivisionError('divide by zero')
             return self.f_dash(val)
