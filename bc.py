@@ -1,3 +1,4 @@
+import math
 import re
 import sys
 
@@ -77,16 +78,23 @@ def tokenize(code):
 
 
 class Parser:
-    def __init__(self, tokens, symbol_table):
+    def __init__(self, tokens, symbol_table, assignVar):
         self.tokens = tokens
         self.pos = 0
         self.symbol_table = symbol_table
+        self.post_inc = []
+        self.assignVar = assignVar
 
     def parse(self):
         val = self.a()
         if self.pos < len(self.tokens):
             raise ValueError('Parse error')
-        return val, self.symbol_table
+        for var in self.post_inc:
+            self.symbol_table[var] = self.get_value(var) + 1
+            if self.assignVar is not None:
+                # print(self.assignVar)
+                val = val + 1.0
+        return val, self.symbol_table  # , self.post_inc
 
     def a(self):
         val = self.b()
@@ -192,7 +200,7 @@ class Parser:
             elif current_token[1] == '/' and g_val == 0:
                 raise ZeroDivisionError('divide by zero')
             elif current_token[1] == '%' and g_val != 0:
-                val = val % g_val
+                val = math.fmod(val, g_val)
             elif current_token[1] == '%' and g_val == 0:
                 raise ZeroDivisionError('divide by zero')
             return self.f_dash(val)
@@ -245,7 +253,10 @@ class Parser:
                 return self.get_value(prev_token[1])
             if current_token[0] in ['inc', 'dec']:
                 self.pos += 1
-                val = self.get_value(prev_token[1]) + (1 if current_token[0] == 'inc' else -1)
+                # print(self.pos)
+                if self.assignVar is None or (prev_token[1] != self.assignVar or self.pos != 2):
+                    self.post_inc.append(prev_token[1])
+                val = self.get_value(prev_token[1])
                 self.symbol_table[prev_token[1]] = val
                 return val
             return self.get_value(prev_token[1])
@@ -281,104 +292,6 @@ class Parser:
             return 0.0
         return self.symbol_table[var]
 
-class Interpreter:
-    def __init__(self, inp):
-        self.inp = inp
-        self.symbol_table = {}
-        self.output = []
-
-    def print_output(self):
-        for line in self.output:
-            if line['print'] == '':
-                break
-            print(line['print'])
-            if not line['no_error']:
-                break
-
-    def interpret(self):
-        lines = self.inp.splitlines()
-        if len(lines) == 0:
-            print("parse error")
-            return
-        for line in lines:
-            line = line.strip()
-            # print(line)
-            if line == '':
-                continue
-            try:
-                if len(line) > 5 and line[:5] == 'print' and len(line) > 6 and line[5] == ' ':
-                    self.print_exp(line[5:].strip())
-                else:
-                    self.identifier(line)
-            except ValueError:
-                print("parse error")
-                return
-        self.print_output()
-
-    def print_exp(self, line):
-        if len(line) == 0:
-            raise ValueError('Expected expression')
-        sub_expression = line.split(',')
-        _val = []
-        flag = True
-        for exp in sub_expression:
-            tokens = tokenize(exp)
-            if len(tokens) == 0:
-                raise ValueError('Expected expression')
-            try:
-                val, s = Parser(tokens, self.symbol_table).parse()
-            except ZeroDivisionError:
-                val = 'divide by zero'
-                if flag:
-                    _val.append(val)
-                flag = False
-            if flag:
-                _val.append(str(val))
-        self.output.append({'print': ' '.join(_val), 'no_error': flag})
-
-    def identifier(self, line):
-        tokens = tokenize(line)
-        # print(tokens)
-        if len(tokens) > 2 and (tokens[1][1] in ['=', '+=', '-=', '/=', '*=', '^=', '%=']):
-            self.assignment(tokens)
-        else:
-            try:
-                val, s = Parser(tokens, self.symbol_table).parse()
-                # self.output.append({'print': str(val), 'no_error': True})
-            except ZeroDivisionError:
-                val = 'divide by zero'
-                self.output.append({'print': val, 'no_error': False})
-
-    def assignment(self, tokens):
-        if tokens[0][0] != 'id' or tokens[0][1] == 'print':
-            raise ValueError('Expected identifier')
-        try:
-            val, s = Parser(tokens[2:], self.symbol_table).parse()
-            if tokens[1][1] == '=':
-                self.symbol_table[tokens[0][1]] = val
-            elif tokens[1][1] == '+=':
-                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
-                                                                                          1] in self.symbol_table else 0) + val
-            elif tokens[1][1] == '-=':
-                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
-                                                                                          1] in self.symbol_table else 0) - val
-            elif tokens[1][1] == '*=':
-                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
-                                                                                          1] in self.symbol_table else 0) * val
-            elif tokens[1][1] == '/=':
-                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
-                                                                                          1] in self.symbol_table else 0) / val
-            elif tokens[1][1] == '^=':
-                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
-                                                                                          1] in self.symbol_table else 0) ** val
-            elif tokens[1][1] == '%=':
-                self.symbol_table[tokens[0][1]] = (self.symbol_table[tokens[0][1]] if tokens[0][
-                                                                                          1] in self.symbol_table else 0) % val
-        except ZeroDivisionError:
-            val = 'divide by zero'
-            self.output.append({'print': val, 'no_error': False})
-
-
 
 class Interpreter:
     def __init__(self, inp):
@@ -425,7 +338,7 @@ class Interpreter:
             if len(tokens) == 0:
                 raise ValueError('Expected expression')
             try:
-                val, s = Parser(tokens, self.symbol_table).parse()
+                val, s = Parser(tokens, self.symbol_table, None).parse()
             except ZeroDivisionError:
                 val = 'divide by zero'
                 if flag:
@@ -442,7 +355,7 @@ class Interpreter:
             self.assignment(tokens)
         else:
             try:
-                val, s = Parser(tokens, self.symbol_table).parse()
+                val, s = Parser(tokens, self.symbol_table, None).parse()
                 # self.output.append({'print': str(val), 'no_error': True})
             except ZeroDivisionError:
                 val = 'divide by zero'
@@ -453,7 +366,7 @@ class Interpreter:
         if tokens[0][0] != 'id' or tokens[0][1] == 'print':
             raise ValueError('Expected identifier')
         try:
-            val, s = Parser(tokens[2:], self.symbol_table).parse()
+            val, s = Parser(tokens[2:], self.symbol_table, tokens[0][1]).parse()
             if tokens[1][1] == '=':
                 self.symbol_table[tokens[0][1]] = val
             elif tokens[1][1] == '+=':
