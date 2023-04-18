@@ -4,6 +4,8 @@
 
 - Name: Jigar Chhatrala
 - Stevens Login: jchhatra@stevens.edu
+- Name: Akhil Vandanapu
+- Stevens Login: avandana@stevens.edu
 
 ## Project Information
 
