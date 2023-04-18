@@ -77,11 +77,12 @@ def tokenize(code):
 
 
 class Parser:
-    def __init__(self, tokens, symbol_table):
+    def __init__(self, tokens, symbol_table, assignVar):
         self.tokens = tokens
         self.pos = 0
         self.symbol_table = symbol_table
         self.post_inc = []
+        self.assignVar = assignVar
 
     def parse(self):
         val = self.a()
@@ -89,7 +90,10 @@ class Parser:
             raise ValueError('Parse error')
         for var in self.post_inc:
             self.symbol_table[var] = self.get_value(var) + 1
-        return val, self.symbol_table #, self.post_inc
+            if self.assignVar is not None:
+                # print(self.assignVar)
+                val = val + 1.0
+        return val, self.symbol_table  # , self.post_inc
 
     def a(self):
         val = self.b()
@@ -248,7 +252,9 @@ class Parser:
                 return self.get_value(prev_token[1])
             if current_token[0] in ['inc', 'dec']:
                 self.pos += 1
-                self.post_inc.append(prev_token[1])
+                # print(self.pos)
+                if self.assignVar is None or (prev_token[1] != self.assignVar or self.pos != 2):
+                    self.post_inc.append(prev_token[1])
                 val = self.get_value(prev_token[1])
                 self.symbol_table[prev_token[1]] = val
                 return val
@@ -331,7 +337,7 @@ class Interpreter:
             if len(tokens) == 0:
                 raise ValueError('Expected expression')
             try:
-                val, s = Parser(tokens, self.symbol_table).parse()
+                val, s = Parser(tokens, self.symbol_table, None).parse()
             except ZeroDivisionError:
                 val = 'divide by zero'
                 if flag:
@@ -348,7 +354,7 @@ class Interpreter:
             self.assignment(tokens)
         else:
             try:
-                val, s = Parser(tokens, self.symbol_table).parse()
+                val, s = Parser(tokens, self.symbol_table, None).parse()
                 # self.output.append({'print': str(val), 'no_error': True})
             except ZeroDivisionError:
                 val = 'divide by zero'
@@ -359,7 +365,7 @@ class Interpreter:
         if tokens[0][0] != 'id' or tokens[0][1] == 'print':
             raise ValueError('Expected identifier')
         try:
-            val, s = Parser(tokens[2:], self.symbol_table).parse()
+            val, s = Parser(tokens[2:], self.symbol_table, tokens[0][1]).parse()
             if tokens[1][1] == '=':
                 self.symbol_table[tokens[0][1]] = val
             elif tokens[1][1] == '+=':
