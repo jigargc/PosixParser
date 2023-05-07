@@ -10,7 +10,6 @@
 ## Project Information
 
 - Public GitHub Repo URL: https://github.com/jigargc/PosixParser
-- Estimated Hours Spent: 30+ hours
 
 ## Testing
 
